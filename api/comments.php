@@ -21,18 +21,31 @@ if ($url == '/comments' && $_SERVER['REQUEST_METHOD'] == 'GET') {
 
 if ($url == '/comments' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $input = $_POST;
-    $commentId = addcomment($input, $dbConn);
-    if ($commentId) {
+    if ($input === null) {
+        http_response_code(400);
+        echo json_encode([
+            'isSuccess' => false,
+            'message'   => 'Invalid JSON data',
+            'data' => []
+        ]);
+        return;
+    }
+
+    $commentId = addComment($input, $dbConn);
+
+    if ($commentId !== null) {
         $input['id'] = $commentId;
         $input['link'] = "/comments/$commentId";
+        http_response_code(201);
+    } else {
+        http_response_code(500);
     }
 
     echo json_encode([
-        'isSuccess' => $commentId ? true : false,
-        'message'   => $commentId ? '' : 'Could not add comment',
+        'isSuccess' => $commentId !== null,
+        'message'   => $commentId !== null ? '' : 'Could not add comment',
         'data'      => $input
     ]);
-    http_response_code($commentId ? 400 : 201);
 }
 
 if (
@@ -52,29 +65,36 @@ if (
     preg_match("/comments\/(\d+)/", $url, $matches) && $_SERVER['REQUEST_METHOD']
     == 'PATCH'
 ) {
-    $input = file_get_contents("php://input");
+    $input = json_decode(file_get_contents("php://input"), true);
 
-    // Parse the JSON data into an associative array
-    $inputData = json_decode($input, true);
-
-    if ($inputData === null) {
+    if ($input === null) {
         http_response_code(400); // Bad Request
         echo json_encode([
             'isSuccess' => false,
             'message'   => 'Invalid JSON data',
             'data' => []
         ]);
-        return null;
+        return;
     }
 
-    // $inputData = $_POST;
-
     $commentId = $matches[1];
-    updatecomment($inputData, $dbConn, $commentId);
+
+    $update = updatecomment($input, $dbConn, $commentId);
     $comment = getcomment($dbConn, $commentId);
+
+    if ($comment == null) {
+        http_response_code(404); // Bad Request
+        echo json_encode([
+            'isSuccess' => false,
+            'message'   => 'No Comment Found',
+            'data' => []
+        ]);
+        return;
+    }
+
     echo json_encode([
-        'isSuccess' => $comment ? true : false,
-        'message'   => $comment ? '' : 'Could not update',
+        'isSuccess' => $update ? true : false,
+        'message'   => $update ? '' : 'Could not update',
         'data'      => $comment
     ]);
 }
@@ -157,7 +177,6 @@ function getParams($input)
             $filterParams[] = "$param='$value'";
         }
     }
-    print_r($filterParams);
     return implode(", ", $filterParams);
 }
 
