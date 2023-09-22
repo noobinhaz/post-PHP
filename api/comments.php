@@ -52,11 +52,12 @@ if (
     preg_match("/comments\/(\d+)/", $url, $matches) && $_SERVER['REQUEST_METHOD']
     == 'GET'
 ) {
+    echo $matches[1];
     $commentId = $matches[1];
     $comment = getcomment($dbConn, $commentId);
     echo json_encode([
         'isSuccess' => !empty($comment) ? true : false,
-        'message'   => !empty($comment) ? '' : 'Could not add comment',
+        'message'   => !empty($comment) ? '' : 'Could not find comment',
         'data'      => $comment
     ]);
 }
